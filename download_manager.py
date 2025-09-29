@@ -25,6 +25,7 @@ from watchdog.events import FileSystemEvent
 import time
 import logging
 import shutil
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(message)s',
@@ -143,7 +144,7 @@ def moveToDest(filename:str):
                 logging.warning(f"Skipped file without extension: {filename}")
                 return
             moveFile(folder.capitalize(),filename)
-    if not flag and extention:
+    if not flag:
         moveFile("others".capitalize(),filename)
 # The `downloadManager` class is a Python class that monitors a specified folder for file creation and
 # movement events, and moves the files to a destination folder once they are fully downloaded.
