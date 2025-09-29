@@ -13,7 +13,6 @@
 import subprocess
 import sys
 import importlib
-import threading
 
 def install(package_name:str):
     try:
@@ -63,7 +62,16 @@ audios:list[str] = [".mp3", ".wav", ".aac", ".ogg", ".flac", ".wma", ".m4a"]
 archives:list[str] = [".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".iso"]
 
 # ⚙️ Executable/script extensions
-executables:list[str] = [".exe", ".msi", ".bat", ".cmd", ".sh", ".apk", ".jar", ".py"]
+executables = [
+    # Windows
+    ".exe", ".msi", ".bat", ".cmd",
+    # macOS
+    ".app", ".dmg", ".pkg",
+    # Linux / Unix
+    ".sh", ".bin", ".run", ".AppImage", ".deb", ".rpm",
+    # Cross-platform / others
+    ".apk", ".jar", ".py"
+]
 #Web Files
 # 🌐 Web-related file extensions
 web_files: list[str] = [
@@ -102,8 +110,6 @@ all_extensions:dict[str,list[str]] = {
 }
 WATCH_FOLDER:Path = Path.home() / "Downloads"
 
-# Global lock
-move_lock = threading.Lock()
 def moveFile(path:str,filename:str):
     """
     The function `moveFile` moves a file to a specified destination path, handling cases where a file
@@ -116,24 +122,23 @@ def moveFile(path:str,filename:str):
     that you want to move to a different location
     :type filename: str
     """
-    try:
-         with move_lock:
-            dest_path:str=os.path.join(WATCH_FOLDER,path)
-            src_path:str=os.path.join(WATCH_FOLDER,filename)
-            os.makedirs(dest_path,exist_ok=True)
-            if os.path.exists(os.path.join(dest_path,filename)):
-                temp_dest_file=dest_path
-                name, ext = os.path.splitext(filename)
-                counter = 1
-                while True:
-                    new_filename = f"{name} ({counter}){ext}"
-                    dest_path = os.path.join(temp_dest_file, new_filename)
-                    if not os.path.exists(dest_path):
-                        break
-                    counter += 1
-                filename = new_filename  # Update for logging
-            shutil.move(src_path,dest_path)
-            logging.info(f"[Success]File Moved : {os.path.join(path,filename)}")
+    try:  
+        dest_path:str=os.path.join(WATCH_FOLDER,path)
+        src_path:str=os.path.join(WATCH_FOLDER,filename)
+        os.makedirs(dest_path,exist_ok=True)
+        if os.path.exists(os.path.join(dest_path,filename)):
+            temp_dest_file=dest_path
+            name, ext = os.path.splitext(filename)
+            counter = 1
+            while True:
+                new_filename = f"{name} ({counter}){ext}"
+                dest_path = os.path.join(temp_dest_file, new_filename)
+                if not os.path.exists(dest_path):
+                    break
+                counter += 1
+            filename = new_filename  # Update for logging
+        shutil.move(src_path,dest_path)
+        logging.info(f"[Success]File Moved : {os.path.join(path,filename)}")
     except Exception as e:
         logging.error(f"[Error]Error Moving : {filename}\nError: '{str(e)}'")
 def moveToDest(filename:str):
