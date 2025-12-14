@@ -10,16 +10,6 @@
     processed or moved. It is a string that represents the name of the file along with its extension
     :type filename: str
 """
-import subprocess
-import sys
-import importlib
-
-def install(package_name:str):
-    try:
-        importlib.import_module(package_name)
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
-install("watchdog")
 import os
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -29,8 +19,8 @@ import logging
 import shutil
 from pathlib import Path
 
-#Base DIR
-BASE_DIR = Path(__file__).resolve().parent
+from utils.FILE_EXT import all_extensions
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,71 +34,11 @@ logging.basicConfig(
 
 #Global Variables
 WAIT_TIME=5
-# file_extensions_by_type.py
 
-# 🖼️ Image extensions
-images:list[str] = ['.svg', '.png', '.bmp', '.jpg', '.webp', '.tiff', '.ico', '.gif', '.avif', '.jpeg']
-
-# 📄 Document extensions
-documents:list[str] = [".pdf", ".doc", ".docx", ".txt", ".odt", ".rtf", ".md", ".epub", ".xls", ".xlsx", ".ppt", ".pptx"]
-
-# 🎥 Video extensions
-videos:list[str] = [".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm", ".3gp"]
-
-# 🎵 Audio extensions
-audios:list[str] = [".mp3", ".wav", ".aac", ".ogg", ".flac", ".wma", ".m4a"]
-
-# 📦 Archive extensions
-archives:list[str] = [".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".iso"]
-
-# ⚙️ Executable/script extensions
-executables = [
-    # Windows
-    ".exe", ".msi", ".bat", ".cmd",
-    # macOS
-    ".app", ".dmg", ".pkg",
-    # Linux / Unix
-    ".sh", ".bin", ".run", ".AppImage", ".deb", ".rpm",
-    # Cross-platform / others
-    ".apk", ".jar", ".py"
-]
-#Web Files
-# 🌐 Web-related file extensions
-web_files: list[str] = [
-    # HTML/CSS/JS
-    ".html", ".htm", ".css", ".scss", ".sass", ".less", ".js", ".mjs", ".ts", ".tsx",
-
-    # Template files
-    ".ejs", ".hbs", ".mustache", ".pug", ".jinja", ".twig",
-
-    # JSON, XML, YAML
-    ".json", ".xml", ".yaml", ".yml",
-
-    # Config/manifest files
-    ".env", ".ini", ".conf", ".config", ".manifest", ".webmanifest",
-
-    # Web fonts
-    ".woff", ".woff2", ".ttf", ".otf", ".eot",
-
-    # Misc
-    ".php", ".asp", ".aspx", ".jsp", ".cfm"
-]
-
-# 🧪 Miscellaneous/Other extensions
-others:list[str] = [".csv", ".db", ".sqlite3", ".log", ]
-
-# ✅ Optional combined dict
-all_extensions:dict[str,list[str]] = {
-    "images": images,
-    "documents": documents,
-    "videos": videos,
-    "audios": audios,
-    "archives": archives,
-    "executables": executables,
-    "web_files":web_files,
-    "others": others
-}
+#Base DIR
+BASE_DIR = Path(__file__).resolve().parent
 WATCH_FOLDER:Path = Path.home() / "Downloads"
+
 
 def moveFile(path:str,filename:str):
     """
@@ -123,22 +53,27 @@ def moveFile(path:str,filename:str):
     :type filename: str
     """
     try:  
-        dest_path:str=os.path.join(WATCH_FOLDER,path)
-        src_path:str=os.path.join(WATCH_FOLDER,filename)
-        os.makedirs(dest_path,exist_ok=True)
-        if os.path.exists(os.path.join(dest_path,filename)):
+        dest_path:Path=WATCH_FOLDER/path
+        src_path:Path = WATCH_FOLDER/filename
+        dest_path.mkdir(exist_ok=True)
+        if (dest_path/filename).exists():
             temp_dest_file=dest_path
-            name, ext = os.path.splitext(filename)
+            temp_file = Path(filename)
+            name, ext = temp_file.stem,temp_file.suffix
+            if (name.startswith(".") and not ext.strip()):
+                filename = "no_name" + ext
+                temp_file = Path(filename)
+                name, ext = temp_file.stem,temp_file.suffix
             counter = 1
             while True:
                 new_filename = f"{name} ({counter}){ext}"
-                dest_path = os.path.join(temp_dest_file, new_filename)
-                if not os.path.exists(dest_path):
+                dest_path = temp_dest_file/new_filename
+                if not (dest_path.exists()):
                     break
                 counter += 1
             filename = new_filename  # Update for logging
         shutil.move(src_path,dest_path)
-        logging.info(f"[Success]File Moved : {os.path.join(path,filename)}")
+        logging.info(f"[Success]File Moved : {(Path(path)/filename).as_posix()}")
     except Exception as e:
         logging.error(f"[Error]Error Moving : {filename}\nError: '{str(e)}'")
 def moveToDest(filename:str):
@@ -152,11 +87,11 @@ def moveToDest(filename:str):
     function, depending on the conditions met within the function.
     """
     flag:bool=False
-    extention:str=os.path.splitext(filename)[-1].lower()
-    for folder,extentions in all_extensions.items():
-        if (extention in extentions):
+    extension:str=os.path.splitext(filename)[-1].lower()
+    for folder,extensions in all_extensions.items():
+        if (extension in extensions):
             flag=True
-            if not extention:
+            if not extension:
                 logging.warning(f"Skipped file without extension: {filename}")
                 return
             moveFile(folder.capitalize(),filename)
@@ -170,16 +105,16 @@ class downloadManager(FileSystemEventHandler):
             if event.is_file():
                 moveToDest(event.name)
             
-    def wait_and_move(self, filepath:str):
-        filename = os.path.basename(filepath)
-        if filename.endswith(('.crdownload', '.part',".tmp")):
+    def wait_and_move(self, filepath:Path):
+        filename = filepath.name
+        if filename.endswith(('.crdownload', '.part',".tmp",".winmd")):
             logging.info(f"[Skipped Temp File] {filename}")
             return
         # Wait until file is stable (size doesn't change)
         last_size = -1
         while True:
             try:
-                current_size = os.path.getsize(filepath)
+                current_size = filepath.stat().st_size
                 if current_size == last_size:
                     break
                 last_size = current_size
@@ -191,17 +126,17 @@ class downloadManager(FileSystemEventHandler):
     def on_created(self,event:FileSystemEvent):
         if not event.is_directory:
             logging.info(f"[Created] {event.src_path}")
-            self.wait_and_move(str(event.src_path))
+            self.wait_and_move(Path(str(event.src_path)))
     def on_moved(self,event:FileSystemEvent):
         if not event.is_directory:
             logging.info(f"[Created] {event.src_path}")
-            self.wait_and_move(str(event.dest_path))
+            self.wait_and_move(Path(str(event.dest_path)))
 
 # Run Watchdog
 def start_watching():
     event_handler:downloadManager = downloadManager()
     observer = Observer()
-    observer.schedule(event_handler, str(WATCH_FOLDER))  # recursive=True to watch subfolders
+    observer.schedule(event_handler, str(WATCH_FOLDER))  # recursive=True to watch subfolder
     observer.start()
     logging.info(f"Watching folder: {WATCH_FOLDER}")
 
