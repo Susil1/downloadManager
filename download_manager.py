@@ -89,6 +89,9 @@ def moveToDest(filename:str):
     flag:bool=False
     extension:str=os.path.splitext(filename)[-1].lower()
     for folder,extensions in all_extensions.items():
+        if (extension in ('.crdownload', '.part',".tmp",".winmd")):
+            flag = True
+            break
         if (extension in extensions):
             flag=True
             if not extension:
@@ -134,11 +137,11 @@ class downloadManager(FileSystemEventHandler):
 
 # Run Watchdog
 def start_watching():
+    logging.info(f"Watching folder: {WATCH_FOLDER}")
     event_handler:downloadManager = downloadManager()
     observer = Observer()
     observer.schedule(event_handler, str(WATCH_FOLDER))  # recursive=True to watch subfolder
     observer.start()
-    logging.info(f"Watching folder: {WATCH_FOLDER}")
 
     try:
         while True:
